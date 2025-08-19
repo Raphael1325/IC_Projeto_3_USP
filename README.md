@@ -1,6 +1,6 @@
 # Simulação e Modelagem de Dados: Desenvolvimento de um Algoritmo de Alta Performance em Python
 
-Este projeto demonstra minha capacidade de desenvolver ferramentas de análise e simulação, traduzindo problemas complexos em soluções computacionais eficientes e escaláveis. Focado no desafio de analisar a estrutura de nanopartículas, este trabalho se concentra na modelagem de dados, otimização de algoritmos e democratização do acesso à informação, habilidades-chave para Business Intelligence.
+Este projeto demonstra minha capacidade de desenvolver ferramentas de análise e simulação, traduzindo problemas complexos em soluções computacionais eficientes e escaláveis. Focado no desafio de analisar a estrutura de nanopartículas, este trabalho se concentra na modelagem de dados, otimização de algoritmos e democratização do acesso à informação.
 
 ## Introdução
 
@@ -44,11 +44,6 @@ protótipo de interface web para democratizar o uso da ferramenta, permitindo qu
 
 
 Flexibilidade e Escalabilidade: A abordagem por elementos finitos permitiu a modelagem de geometrias complexas e realistas, como o modelo de um haltere e até mesmo o dróide R2-D2. Essa flexibilidade é crucial para lidar com a complexidade do mundo real.
-
-
-
-
-Eficiência Computacional: A otimização com a biblioteca Numba reduziu o tempo total de processamento de um minuto e 30 segundos (em Fortran) para apenas 27 segundos (em Python), provando a capacidade de construir soluções eficientes para problemas de processamento de dados em larga escala.
 
 
 Inovação e Acessibilidade: A criação de um protótipo de interface web representa um passo importante para transformar uma ferramenta complexa e técnica em um recurso acessível, demonstrando a habilidade de traduzir resultados técnicos para um público mais amplo e não-especialista.
