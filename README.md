@@ -53,7 +53,7 @@ Inovação e Acessibilidade: A criação de um protótipo de interface web repre
 
 Programação e Otimização: Python, Numba.
 
-Modelagem e Análise de Dados: Método de Elementos Finitos (FEM), Transformada de Fourier, Matplotlib.
+Modelagem e Análise de Dados: Método de Elementos Finitos (FEM), Matplotlib.
 
 Documentação e Prototipagem: LaTeX, HTML, CSS, JavaScript.
 
