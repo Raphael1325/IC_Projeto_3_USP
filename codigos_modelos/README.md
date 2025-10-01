@@ -61,7 +61,7 @@ print("Centro de Massa:", ger.calcular_CM(coordenadas))
 2. Salvar em arquivo .dat
 ger.salvar_modelo_dat("modelo.dat")
 Formato do arquivo:
-# Formato: X Y Z Peso
+Formato: X Y Z Peso
    0.0000    1.0000    2.0000    1.0000
    1.0000    0.0000    2.0000    1.0000
    ...
