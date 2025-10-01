@@ -47,6 +47,7 @@ pip install numpy numba scipy matplotlib
 
 # Exemplo: gerar uma esfera de raio 10 Å centrada na origem:
 
+```python
 from geometria import GerenciadorGeometrias
 
 ger = GerenciadorGeometrias()
@@ -58,31 +59,3 @@ ger.adicionar_geometria(
 
 coordenadas = ger.obter_coordenadas_totais()
 print("Centro de Massa:", ger.calcular_CM(coordenadas))
-2. Salvar em arquivo .dat
-ger.salvar_modelo_dat("modelo.dat")
-Formato do arquivo:
-Formato: X Y Z Peso
-   0.0000    1.0000    2.0000    1.0000
-   1.0000    0.0000    2.0000    1.0000
-   ...
-3. Visualização Gráfica
-plota_intensidade("dados.NIQ")
-plot_POR("dados.POR")
-plota_intensidade_vs_qRg("dados.NIQ", "rg.txt")
-plota_POR_vs_rRg("dados.POR", "rg.txt")
-
-
-Exemplos de Geometrias
-parametros = {"R": 20, "d_grid": 2.0}
-ger.adicionar_geometria(tipo=1, centro=[0, 0, 0], parametros=parametros)
-
-
-
-
- Observações
-
-O código usa Numba para aceleração JIT; a primeira execução pode ser mais lenta.
-
-Os pesos podem ser definidos em parametros['peso'] (default = 1.0).
-
-Arquivos .NIQ e .POR devem estar no formato padrão de softwares de SAXS.
