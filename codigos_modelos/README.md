@@ -59,3 +59,10 @@ ger.adicionar_geometria(
 
 coordenadas = ger.obter_coordenadas_totais()
 print("Centro de Massa:", ger.calcular_CM(coordenadas))
+ger.salvar_modelo_dat("modelo.dat")
+plota_intensidade("dados.NIQ")
+plot_POR("dados.POR")
+plota_intensidade_vs_qRg("dados.NIQ", "rg.txt")
+plota_POR_vs_rRg("dados.POR", "rg.txt")
+parametros = {"R": 20, "d_grid": 2.0}
+ger.adicionar_geometria(tipo=1, centro=[0, 0, 0], parametros=parametros)
