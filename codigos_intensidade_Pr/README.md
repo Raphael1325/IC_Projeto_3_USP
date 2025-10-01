@@ -70,7 +70,7 @@ O programa realiza:
 
 1. Instale as dependências:  
 
-   pip install numpy matplotlib numba
-   Edite no código o caminho para seu arquivo .pdb:
-   path_pdb = r"C:\Interface-python\teste_criacao_modelo_py\Model.pdb"
-   Execute o script
+  - pip install numpy matplotlib numba
+  - Edite no código o caminho para seu arquivo .pdb:
+  - path_pdb = r"C:\Interface-python\teste_criacao_modelo_py\Model.pdb"
+  - Execute o script
