@@ -1,4 +1,4 @@
-# 🧩 Gerador e Manipulador de Geometrias 3D para Modelagem Estrutural
+#  Gerador e Manipulador de Geometrias 3D para Modelagem Estrutural
 
 Este repositório contém um conjunto de funções e classes em **Python** para:  
 - geração de coordenadas de diferentes geometrias em 3D,  
@@ -10,7 +10,7 @@ O objetivo principal é **auxiliar na modelagem computacional de partículas/nan
 
 ---
 
-## ✨ Funcionalidades
+##  Funcionalidades
 
 ### Geometrias 3D suportadas
 - Esfera sólida  
@@ -35,7 +35,7 @@ O objetivo principal é **auxiliar na modelagem computacional de partículas/nan
 
 ---
 
-## 📦 Dependências
+##  Dependências
 
 Instale as bibliotecas necessárias com:  
 
