@@ -1,5 +1,4 @@
-# Simulação e Modelagem de Dados: Desenvolvimento de um Algoritmo de Alta Performance em Python
-
+# Simulação e Modelagem de Dados: Desenvolvimento de um Algoritmo para modelagem de estruturas d enanopartículas.
 Este projeto demonstra minha capacidade de desenvolver ferramentas de análise e simulação, traduzindo problemas complexos em soluções computacionais eficientes e escaláveis. Focado no desafio de analisar a estrutura de nanopartículas, este trabalho se concentra na modelagem de dados, otimização de algoritmos e democratização do acesso à informação.
 
 ## Introdução
