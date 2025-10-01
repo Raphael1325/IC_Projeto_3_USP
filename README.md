@@ -51,11 +51,11 @@ Inovação e Acessibilidade: A criação de um protótipo de interface web repre
 
 ## Tecnologias e Ferramentas
 
-Programação e Otimização: Python, Numba.
+Programação e Otimização: Python, Numba, Numpy, Matplotlib, Scipy, Fortran 77.
 
-Modelagem e Análise de Dados: Método de Elementos Finitos (FEM), Matplotlib.
+Modelagem e Análise de Dados: Método de Elementos Finitos (FEM).
 
-Documentação e Prototipagem: LaTeX, HTML, CSS, JavaScript.
+Documentação e Prototipagem: LaTeX, GoogleColaboratory.
 
 Autor: Raphael Lima Alves
 Orientador(a): Prof. Dr. Cristiano Luis Pinto Oliveira
