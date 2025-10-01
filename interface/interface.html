@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Espalhamento de Raios X (FEM)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .loader {
+            border: 5px solid #f3f3f3; /* Light grey */
+            border-top: 5px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        #beads3DContainer canvas {
+            display: block;
+            width: 100% !important;
+            height: 300px !important;
+        }
+         #iqChartContainer, #prChartContainer { /* Applied to prChartContainer as well */
+            height: 300px; 
+            width: 100%;
+        }
+        .coordinate-row input, .center-coordinate-input input, .rotation-point-input input {
+            width: calc(33.333% - 8px); /* For 3 inputs with spacing */
+        }
+        .param-section {
+            padding-left: 1rem;
+            border-left: 2px solid #e5e7eb; /* Default border color */
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+        }
+        .param-section.border-blue-200 { border-left-color: #bfdbfe; }
+        .param-section.border-green-200 { border-left-color: #a7f3d0; }
+        .param-section.border-yellow-200 { border-left-color: #fef08a; }
+        .param-section.border-purple-200 { border-left-color: #ddd6fe; }
+        .param-section.border-pink-200 { border-left-color: #fbcfe8; }
+        .param-section.border-orange-200 { border-left-color: #fed7aa; }
+        .param-section.border-teal-200 { border-left-color: #99f6e4; }
+        .param-section.border-indigo-200 { border-left-color: #c7d2fe; }
+
+
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div id="loader" class="loader"></div>
+
+    <div class="container mx-auto p-4">
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl font-bold text-blue-600">Simulador de Espalhamento de Raios X (FEM)</h1>
+            <p class="text-sm text-gray-600">Interface para calcular I(q) e P(r) a partir de uma malha de beads.</p>
+            <p class="text-xs text-gray-500 mt-1">Todas as dimensões em milímetros (mm), ângulos em graus.</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+            <div class="lg:w-1/3 bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4 text-blue-500 border-b pb-2">Configurações da Geometria</h2>
+                
+                <div class="mb-4">
+                    <label for="meshType" class="block text-sm font-medium text-gray-700">Tipo de Geometria (para gerar ou adicionar):</label>
+                    <select id="meshType" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="none">Nenhum</option>
+                        <option value="cube">Cubo Simples</option>
+                        <option value="manual">Coordenadas Manuais</option>
+                        <option value="prisma">Prisma</option>
+                        <option value="cilindro">Cilindro</option>
+                        <option value="casca_esfera">Casca de Esfera</option>
+                        <option value="esfera_preenchida">Esfera Preenchida</option>
+                        <option value="cone">Cone</option>
+                        <option value="elipsoide">Elipsoide</option>
+                    </select>
+                </div>
+
+                {/* */}
+                <div id="cubeParams" class="hidden space-y-3 param-section border-blue-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros do Cubo:</p>
+                    <div>
+                        <label for="cubeEdge" class="block text-sm font-medium">Aresta (mm):</label>
+                        <input type="number" id="cubeEdge" value="10" min="0.1" step="0.1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div id="cubeCenterCoords">
+                        <label class="block text-sm font-medium">Coordenadas do Centro (X,Y,Z) (mm):</label>
+                    </div>
+                    <div data-geometry="cube">
+                        <label class="block text-sm font-medium text-gray-700">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                            <option value="radius">Raio da Subunidade</option>
+                            <option value="qmax">q máximo para Modelo</option>
+                        </select>
+                    </div>
+                    <div class="radius-input-group">
+                        <label for="cubeBeadRadius" class="block text-sm font-medium text-gray-700">Raio da subunidade (mm):</label>
+                        <input type="number" id="cubeBeadRadius" value="1" step="0.1" min="0.1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="qmax-input-group hidden">
+                        <label for="cubeQMax" class="block text-sm font-medium">q máximo (para construção do modelo):</label>
+                        <input type="number" id="cubeQMax" value="0.5" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+
+                {/* */}
+                <div id="manualCoordsParams" class="hidden space-y-3 param-section">
+                     <p class="text-sm font-medium text-gray-700">Coordenadas Manuais (mm):</p>
+                     <div id="manualCoordsInputArea" class="space-y-2">
+                     </div>
+                     <button id="addCoordRowBtn" class="mt-2 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md transition duration-150 text-sm">
+                         Adicionar Ponto (X, Y, Z)
+                     </button>
+                     <div>
+                        <label for="manualBeadRadius" class="block text-sm font-medium text-gray-700">Raio da subunidade (mm):</label>
+                        <input type="number" id="manualBeadRadius" value="1" step="0.1" min="0.1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+
+                {/* */}
+                <div id="prismaParams" class="hidden space-y-3 param-section border-green-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros do Prisma:</p>
+                    <div><label for="prismaHeight" class="block text-sm font-medium">Altura (mm):</label><input type="number" id="prismaHeight" value="10" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="prismaWidth" class="block text-sm font-medium">Largura (mm):</label><input type="number" id="prismaWidth" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="prismaLength" class="block text-sm font-medium">Comprimento (mm):</label><input type="number" id="prismaLength" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="prismaCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro (X,Y,Z) (mm):</label></div>
+                    <div data-geometry="prisma">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="prismaBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="prismaBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="prismaQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="prismaQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+
+                {/* */}
+                <div id="cilindroParams" class="hidden space-y-3 param-section border-yellow-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros do Cilindro:</p>
+                    <div><label for="cilindroRadiusInner" class="block text-sm font-medium">Raio Interno (mm):</label><input type="number" id="cilindroRadiusInner" value="0" min="0" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="cilindroRadiusOuter" class="block text-sm font-medium">Raio Externo (mm):</label><input type="number" id="cilindroRadiusOuter" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="cilindroHeight" class="block text-sm font-medium">Altura (mm):</label><input type="number" id="cilindroHeight" value="10" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="cilindroCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro da Base (X,Y,Z) (mm):</label></div>
+                    <div data-geometry="cilindro">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="cilindroBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="cilindroBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="cilindroQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="cilindroQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+                
+                {/* */}
+                <div id="casca_esferaParams" class="hidden space-y-3 param-section border-purple-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros da Casca de Esfera:</p>
+                    <div><label for="cascaRadiusInner" class="block text-sm font-medium">Raio Interno (mm):</label><input type="number" id="cascaRadiusInner" value="4" min="0" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="cascaRadiusOuter" class="block text-sm font-medium">Raio Externo (mm):</label><input type="number" id="cascaRadiusOuter" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="casca_esferaCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro (X,Y,Z) (mm):</label></div>
+                     <div data-geometry="casca_esfera">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="casca_esferaBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="casca_esferaBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="casca_esferaQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="casca_esferaQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+
+                {/* */}
+                <div id="esfera_preenchidaParams" class="hidden space-y-3 param-section border-pink-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros da Esfera Preenchida:</p>
+                    <div><label for="esferaPRadius" class="block text-sm font-medium">Raio (mm):</label><input type="number" id="esferaPRadius" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="esfera_preenchidaCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro (X,Y,Z) (mm):</label></div>
+                    <div data-geometry="esfera_preenchida">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="esfera_preenchidaBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="esfera_preenchidaBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="esfera_preenchidaQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="esfera_preenchidaQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+
+                {/* */}
+                <div id="coneParams" class="hidden space-y-3 param-section border-orange-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros do Cone:</p>
+                    <div><label for="coneBaseRadius" class="block text-sm font-medium">Raio da Base (mm):</label><input type="number" id="coneBaseRadius" value="5" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="coneHeight" class="block text-sm font-medium">Altura (mm):</label><input type="number" id="coneHeight" value="10" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="coneCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro da Base (X,Y,Z) (mm):</label></div>
+                    <div data-geometry="cone">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="coneBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="coneBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="coneQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="coneQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+                
+                {/* */}
+                <div id="elipsoideParams" class="hidden space-y-3 param-section border-teal-200">
+                    <p class="text-sm font-medium text-gray-700">Parâmetros do Elipsoide:</p>
+                    <div><label for="elipsoideA" class="block text-sm font-medium">Semi-eixo a (mm):</label><input type="number" id="elipsoideA" value="6" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="elipsoideB" class="block text-sm font-medium">Semi-eixo b (mm):</label><input type="number" id="elipsoideB" value="4" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div><label for="elipsoideC" class="block text-sm font-medium">Semi-eixo c (mm):</label><input type="number" id="elipsoideC" value="3" min="0.1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div id="elipsoideCenterCoords"><label class="block text-sm font-medium">Coordenadas do Centro (X,Y,Z) (mm):</label></div>
+                    <div data-geometry="elipsoide">
+                        <label class="block text-sm font-medium">Definir por:</label>
+                        <select class="geometry-definition-type mt-1 block w-full p-2 border rounded-md"><option value="radius">Raio da Subunidade</option><option value="qmax">q máximo</option></select>
+                    </div>
+                    <div class="radius-input-group"><label for="elipsoideBeadRadius" class="block text-sm font-medium">Raio da subunidade (mm):</label><input type="number" id="elipsoideBeadRadius" value="1" class="mt-1 block w-full p-2 border rounded-md"></div>
+                    <div class="qmax-input-group hidden"><label for="elipsoideQMax" class="block text-sm font-medium">q máximo:</label><input type="number" id="elipsoideQMax" value="0.5" class="mt-1 block w-full p-2 border rounded-md"></div>
+                </div>
+
+                <button id="generateMeshBtn" class="mt-6 w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                    Gerar/Atualizar Malha
+                </button>
+
+                {/* */}
+                <div class="mt-6 mb-6">
+                    <h3 class="text-lg font-medium mb-2 text-green-600 border-b pb-2">Parâmetros de Cálculo I(q)</h3>
+                    <div class="space-y-3 param-section border-green-200">
+                        <div>
+                            <label for="qMinForIQ" class="block text-sm font-medium">q mínimo (para cálculo de I(q)):</label>
+                            <input type="number" id="qMinForIQ" value="0.01" step="0.001" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="qMaxForIQ" class="block text-sm font-medium">q máximo (para cálculo de I(q)):</label>
+                            <input type="number" id="qMaxForIQ" value="0.5" step="0.01" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="numQPointsForIQ" class="block text-sm font-medium">Número de pontos em q (para I(q)):</label>
+                            <input type="number" id="numQPointsForIQ" value="100" min="2" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                         <div>
+                            <label for="formFactorForIQ" class="block text-sm font-medium">Fator de Forma f(q) (constante):</label>
+                            <input type="number" id="formFactorForIQ" value="1" step="0.1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
+                </div>
+
+                {/* */}
+                <div class="mt-6 mb-6">
+                    <h3 class="text-lg font-medium mb-2 text-indigo-600 border-b pb-2">Configurações de Rotação</h3>
+                    <div class="space-y-3 param-section border-indigo-200">
+                        <div>
+                            <label class="block text-sm font-medium">Ponto de Rotação (X,Y,Z) (mm):</label>
+                            <div class="rotation-point-input flex items-center space-x-2 mt-1">
+                                <input type="number" id="rotationPointX" value="0" class="p-1 border border-gray-300 rounded-md" placeholder="X">
+                                <input type="number" id="rotationPointY" value="0" class="p-1 border border-gray-300 rounded-md" placeholder="Y">
+                                <input type="number" id="rotationPointZ" value="0" class="p-1 border border-gray-300 rounded-md" placeholder="Z">
+                            </div>
+                        </div>
+                        <div>
+                            <label for="rotationAxis" class="block text-sm font-medium">Eixo de Rotação:</label>
+                            <select id="rotationAxis" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm">
+                                <option value="x">Eixo X</option>
+                                <option value="y">Eixo Y</option>
+                                <option value="z">Eixo Z</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="rotationAngle" class="block text-sm font-medium">Ângulo de Rotação (graus):</label>
+                            <input type="number" id="rotationAngle" value="0" step="1" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                        <button id="applyRotationBtn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                            Aplicar Rotação
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium mb-2">Ações</h3>
+                    <div class="space-y-3">
+                        <button id="addGeometryBtn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                            Adicionar Geometria à Cena
+                        </button>
+                        <button id="calculateScatteringBtn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                            Calcular I(q)
+                        </button>
+                        <button id="calculatePrBtn" class="w-full bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150">
+                            Calcular P(r)
+                        </button>
+                        <button id="clearAllBtn" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-md transition duration-150 mt-4">
+                            Limpar Tudo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:w-2/3 space-y-6">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-blue-500 border-b pb-2">Visualização da Malha 3D</h2>
+                    <div id="beads3DContainer" class="w-full h-72 border border-gray-300 rounded-md overflow-hidden">
+                    </div>
+                    <p id="beadCountDisplay" class="text-sm text-gray-600 mt-2">Número de beads: 0</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 text-blue-500 border-b pb-2">Gráfico de Espalhamento I(q)</h2>
+                    <div id="iqChartContainer" class="w-full h-72 border border-gray-300 rounded-md">
+                        <canvas id="iqChart"></canvas>
+                    </div>
+                </div>
+                <div id="prChartPanel" class="bg-white p-6 rounded-lg shadow-lg hidden">
+                    <h2 class="text-xl font-semibold mb-4 text-teal-500 border-b pb-2">Gráfico P(r)</h2>
+                    <div id="prChartContainer" class="w-full h-72 border border-gray-300 rounded-md">
+                        <canvas id="prChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="messageArea" class="mt-6 p-4 text-sm rounded-md hidden"></div>
+
+    </div>
+
+    <script>
+        // --- Global variables ---
+        let beads = []; 
+        let scene, camera, renderer, controls; 
+        let iqChartInstance, prChartInstance; 
+
+        // --- DOM Elements ---
+        const meshTypeSelect = document.getElementById('meshType');
+        const generateMeshBtn = document.getElementById('generateMeshBtn');
+        
+        const geometryParamsDivs = {
+            cube: document.getElementById('cubeParams'),
+            manual: document.getElementById('manualCoordsParams'),
+            prisma: document.getElementById('prismaParams'),
+            cilindro: document.getElementById('cilindroParams'),
+            casca_esfera: document.getElementById('casca_esferaParams'),
+            esfera_preenchida: document.getElementById('esfera_preenchidaParams'),
+            cone: document.getElementById('coneParams'),
+            elipsoide: document.getElementById('elipsoideParams'),
+        };
+        
+        const manualCoordsInputArea = document.getElementById('manualCoordsInputArea');
+        const addCoordRowBtn = document.getElementById('addCoordRowBtn');
+        const manualBeadRadiusInput = document.getElementById('manualBeadRadius');
+
+        const qMinForIQInput = document.getElementById('qMinForIQ');
+        const qMaxForIQInput = document.getElementById('qMaxForIQ');
+        const numQPointsForIQInput = document.getElementById('numQPointsForIQ');
+        const formFactorForIQInput = document.getElementById('formFactorForIQ');
+
+        const rotationPointXInput = document.getElementById('rotationPointX');
+        const rotationPointYInput = document.getElementById('rotationPointY');
+        const rotationPointZInput = document.getElementById('rotationPointZ');
+        const rotationAxisSelect = document.getElementById('rotationAxis');
+        const rotationAngleInput = document.getElementById('rotationAngle');
+        const applyRotationBtn = document.getElementById('applyRotationBtn');
+
+        const addGeometryBtn = document.getElementById('addGeometryBtn'); // Novo botão
+        const calculateScatteringBtn = document.getElementById('calculateScatteringBtn');
+        const calculatePrBtn = document.getElementById('calculatePrBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+
+        const beads3DContainer = document.getElementById('beads3DContainer');
+        const iqChartCanvas = document.getElementById('iqChart');
+        const prChartCanvas = document.getElementById('prChart');
+        const prChartPanel = document.getElementById('prChartPanel');
+        const beadCountDisplay = document.getElementById('beadCountDisplay');
+        const loader = document.getElementById('loader');
+        const messageArea = document.getElementById('messageArea');
+
+        // --- Utility Functions ---
+        function showLoader() { loader.style.display = 'block'; }
+        function hideLoader() { loader.style.display = 'none'; }
+
+        function showMessage(text, type = 'info') {
+            messageArea.textContent = text;
+            messageArea.className = 'mt-6 p-4 text-sm rounded-md'; 
+            if (type === 'error') {
+                messageArea.classList.add('bg-red-100', 'text-red-700');
+            } else if (type === 'success') {
+                messageArea.classList.add('bg-green-100', 'text-green-700');
+            } else { 
+                messageArea.classList.add('bg-blue-100', 'text-blue-700');
+            }
+        }
+        function hideMessage() {
+            messageArea.classList.add('hidden');
+            messageArea.textContent = '';
+        }
+
+        function createXYZInputGroup(parentId, prefix) {
+            const container = document.getElementById(parentId);
+            const oldInputWrappers = container.querySelectorAll('.center-coordinate-input');
+            oldInputWrappers.forEach(wrapper => wrapper.remove());
+            const labelElement = container.querySelector('label'); 
+            if (!labelElement) { 
+                 console.error("Label não encontrado para o grupo de coordenadas:", parentId);
+                 return;
+            }
+            const inputWrapper = document.createElement('div');
+            inputWrapper.className = 'center-coordinate-input flex items-center space-x-2 mt-1';
+            ['X', 'Y', 'Z'].forEach(axis => {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `${prefix}${axis}`;
+                input.className = 'p-1 border border-gray-300 rounded-md';
+                input.placeholder = axis;
+                input.value = '0'; 
+                inputWrapper.appendChild(input);
+            });
+            container.appendChild(inputWrapper); 
+        }
+        
+        function createManualCoordRow(x = '', y = '', z = '') {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'coordinate-row flex items-center space-x-2 mb-2';
+            ['X', 'Y', 'Z'].forEach(axis => {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.className = `p-1 border border-gray-300 rounded-md manual-coord-${axis.toLowerCase()}`;
+                input.placeholder = axis;
+                input.value = axis === 'X' ? x : (axis === 'Y' ? y : z);
+                rowDiv.appendChild(input);
+            });
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '✕';
+            removeBtn.className = 'text-red-500 hover:text-red-700 font-bold text-xs p-1';
+            removeBtn.title = 'Remover Ponto';
+            removeBtn.onclick = () => rowDiv.remove();
+            rowDiv.appendChild(removeBtn);
+            manualCoordsInputArea.appendChild(rowDiv);
+        }
+        if (addCoordRowBtn) {
+            addCoordRowBtn.addEventListener('click', () => createManualCoordRow());
+        }
+
+        meshTypeSelect.addEventListener('change', () => {
+            Object.values(geometryParamsDivs).forEach(div => {
+                if (div) div.classList.add('hidden');
+            });
+            const selectedType = meshTypeSelect.value;
+            if (geometryParamsDivs[selectedType]) {
+                geometryParamsDivs[selectedType].classList.remove('hidden');
+                if (selectedType === 'manual' && manualCoordsInputArea.children.length === 0) {
+                    createManualCoordRow();
+                }
+            }
+            const currentParamsDiv = geometryParamsDivs[selectedType];
+            if (currentParamsDiv) {
+                const defTypeSelect = currentParamsDiv.querySelector('.geometry-definition-type');
+                if (defTypeSelect) {
+                    defTypeSelect.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+
+        document.querySelectorAll('.geometry-definition-type').forEach(selectElement => {
+            selectElement.addEventListener('change', (event) => {
+                const selectedOption = event.target.value;
+                const parentParamSection = event.target.closest('.param-section');
+                if (!parentParamSection) return;
+                const radiusGroup = parentParamSection.querySelector('.radius-input-group'); 
+                const qmaxGroup = parentParamSection.querySelector('.qmax-input-group');   
+                if (selectedOption === 'radius') {
+                    if(radiusGroup) radiusGroup.classList.remove('hidden');
+                    if(qmaxGroup) qmaxGroup.classList.add('hidden');
+                } else if (selectedOption === 'qmax') {
+                    if(radiusGroup) radiusGroup.classList.add('hidden');
+                    if(qmaxGroup) qmaxGroup.classList.remove('hidden');
+                }
+            });
+        });
+
+        // --- Lógica Centralizada de Geração de Beads ---
+        function generateBeadsFromInputs(appendToExisting = false) {
+            hideMessage();
+            const type = meshTypeSelect.value;
+            let newBeads = []; // Beads geradas nesta chamada
+
+            // Se não for para adicionar, limpa as beads existentes
+            if (!appendToExisting) {
+                beads = [];
+            }
+            
+            let beadRadius, qMaxModel;
+            const currentParamsDiv = geometryParamsDivs[type];
+
+            // Validação de Raio/qMax para geometrias não manuais
+            if (type !== 'manual' && type !== 'none' && currentParamsDiv) {
+                const defTypeSelect = currentParamsDiv.querySelector('.geometry-definition-type');
+                const defTypeValue = defTypeSelect ? defTypeSelect.value : 'radius'; 
+                
+                if (defTypeValue === 'radius') {
+                    const radiusInput = currentParamsDiv.querySelector('.radius-input-group input');
+                    beadRadius = parseFloat(radiusInput.value);
+                    if (isNaN(beadRadius) || beadRadius <= 0) {
+                        throw new Error(`Raio da subunidade inválido para ${type}.`);
+                    }
+                } else { 
+                    const qMaxInputEl = currentParamsDiv.querySelector('.qmax-input-group input');
+                    qMaxModel = parseFloat(qMaxInputEl.value);
+                     if (isNaN(qMaxModel) || qMaxModel <= 0) { 
+                        throw new Error(`q máximo inválido para ${type}.`);
+                    }
+                }
+            } else if (type === 'manual') { // Validação para manual
+                beadRadius = parseFloat(manualBeadRadiusInput.value);
+                 if (isNaN(beadRadius) || beadRadius <= 0) {
+                    throw new Error("Raio da subunidade inválido para coordenadas manuais.");
+                }
+            }
+
+            // Lógica de Geração Específica por Tipo
+            console.log(`Gerando malha tipo: ${type}, Adicionar: ${appendToExisting}`);
+            if (type === 'none') {
+                if (!appendToExisting) beads = []; // Garante que 'none' limpe se não estiver adicionando
+            } else if (type === 'cube') {
+                const edge = parseFloat(document.getElementById('cubeEdge').value);
+                const centerX = parseFloat(document.getElementById('cubeCenterX').value);
+                const centerY = parseFloat(document.getElementById('cubeCenterY').value);
+                const centerZ = parseFloat(document.getElementById('cubeCenterZ').value);
+                if (isNaN(edge) || edge <= 0 || isNaN(centerX) || isNaN(centerY) || isNaN(centerZ)) {
+                    throw new Error("Parâmetros do cubo inválidos.");
+                }
+                let spacing, N;
+                if (beadRadius) { 
+                    N = Math.max(1, Math.floor(edge / (beadRadius * 2)) +1 ); 
+                    spacing = (N > 1) ? edge / (N - 1) : edge; 
+                } else if (qMaxModel) { 
+                    const dMax = Math.sqrt(3 * edge * edge);
+                    spacing = Math.PI / qMaxModel; 
+                    N = Math.max(1, Math.floor(edge / spacing) + 1);
+                    spacing = (N > 1) ? edge / (N - 1) : edge;
+                } else {
+                    throw new Error("Definição do cubo (raio ou qMax) não encontrada.");
+                }
+                const offset = (N > 1 ? (N - 1) * spacing / 2 : 0);
+                for (let i = 0; i < N; i++) {
+                    for (let j = 0; j < N; j++) {
+                        for (let k = 0; k < N; k++) {
+                            newBeads.push({
+                                x: centerX + (N > 1 ? i * spacing - offset : 0),
+                                y: centerY + (N > 1 ? j * spacing - offset : 0),
+                                z: centerZ + (N > 1 ? k * spacing - offset : 0)
+                            });
+                        }
+                    }
+                }
+                console.log("Cubo:", { edge, centerX, centerY, centerZ, beadRadius, qMaxModel, N, spacing, generatedBeads: newBeads.length });
+            } else if (type === 'manual') {
+                const coordRows = manualCoordsInputArea.querySelectorAll('.coordinate-row');
+                coordRows.forEach((row, index) => {
+                    const x = parseFloat(row.querySelector('.manual-coord-x').value);
+                    const y = parseFloat(row.querySelector('.manual-coord-y').value);
+                    const z = parseFloat(row.querySelector('.manual-coord-z').value);
+                    if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+                        newBeads.push({ x, y, z });
+                    } else if (row.querySelector('.manual-coord-x').value.trim() || row.querySelector('.manual-coord-y').value.trim() || row.querySelector('.manual-coord-z').value.trim()) {
+                        throw new Error(`Coordenada inválida na linha ${index + 1}.`);
+                    }
+                });
+                 if (newBeads.length === 0 && coordRows.length > 0) {
+                     let allEmpty = Array.from(coordRows).every(row => 
+                        !row.querySelector('.manual-coord-x').value.trim() &&
+                        !row.querySelector('.manual-coord-y').value.trim() &&
+                        !row.querySelector('.manual-coord-z').value.trim()
+                     );
+                     if (!allEmpty) throw new Error("Pelo menos uma coordenada manual válida deve ser fornecida se houver linhas.");
+                 }
+            } else if (type === 'prisma') {
+                // Implementação da geração de beads para Prisma (placeholder)
+                showMessage("Geração de beads para Prisma ainda não implementada.", "info");
+            } else if (type === 'cilindro') {
+                showMessage("Geração de beads para Cilindro ainda não implementada.", "info");
+            } else if (type === 'casca_esfera') {
+                showMessage("Geração de beads para Casca de Esfera ainda não implementada.", "info");
+            } else if (type === 'esfera_preenchida') {
+                showMessage("Geração de beads para Esfera Preenchida ainda não implementada.", "info");
+            } else if (type === 'cone') {
+                showMessage("Geração de beads para Cone ainda não implementada.", "info");
+            } else if (type === 'elipsoide') {
+                showMessage("Geração de beads para Elipsoide ainda não implementada.", "info");
+            }
+
+            // Adiciona as novas beads às existentes, se aplicável
+            if (newBeads.length > 0) {
+                beads = beads.concat(newBeads);
+            }
+            
+            // Atualiza a UI
+            beadCountDisplay.textContent = `Número de beads: ${beads.length}`;
+            update3DView();
+
+            if (type === 'none' && !appendToExisting) {
+                showMessage("Malha limpa.", "success");
+            } else if (newBeads.length > 0) {
+                 showMessage(`Geometria (${type}) ${appendToExisting ? 'adicionada' : 'gerada'} com ${newBeads.length} beads. Total: ${beads.length} beads.`, "success");
+            } else if (type === 'manual' && newBeads.length === 0 && !appendToExisting){ // Caso manual sem beads e não adicionando
+                 showMessage("Nenhuma coordenada manual válida inserida.", "info");
+            } else if (type !== 'none' && newBeads.length === 0 && !appendToExisting) { // Outras geometrias sem beads e não adicionando
+                // A mensagem de "não implementada" ou erro de parâmetro já deve ter sido mostrada
+            }
+        }
+
+        // Event Listeners para os botões de geração
+        generateMeshBtn.addEventListener('click', () => {
+            try {
+                generateBeadsFromInputs(false); // false para limpar e gerar nova
+            } catch (error) {
+                showMessage(`Erro ao gerar malha: ${error.message}`, "error");
+                console.error(error);
+            }
+        });
+
+        addGeometryBtn.addEventListener('click', () => {
+            try {
+                generateBeadsFromInputs(true); // true para adicionar à existente
+            } catch (error) {
+                showMessage(`Erro ao adicionar geometria: ${error.message}`, "error");
+                console.error(error);
+            }
+        });
+
+
+        // --- Visualização 3D (Three.js) ---
+        function init3DView() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f0f0);
+            const aspect = beads3DContainer.clientWidth / (beads3DContainer.clientHeight || 300);
+            camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 2000); 
+            camera.position.set(10, 10, 20); 
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(beads3DContainer.clientWidth, beads3DContainer.clientHeight || 300);
+            beads3DContainer.innerHTML = ''; 
+            beads3DContainer.appendChild(renderer.domElement);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); 
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9); 
+            directionalLight.position.set(10, 15, 10); 
+            scene.add(directionalLight);
+            if (typeof THREE.OrbitControls !== 'undefined') {
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.addEventListener('change', render3D); 
+            }
+            window.addEventListener('resize', onWindowResize, false);
+            render3D();
+        }
+        
+        function onWindowResize() {
+            if (!renderer || !camera || !beads3DContainer) return;
+            const newWidth = beads3DContainer.clientWidth;
+            const newHeight = beads3DContainer.clientHeight > 0 ? beads3DContainer.clientHeight : 300;
+            if (newWidth > 0 && newHeight > 0) {
+                camera.aspect = newWidth / newHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(newWidth, newHeight);
+                render3D();
+            }
+        }
+
+        function update3DView() {
+            if (!scene) init3DView(); 
+            scene.children.filter(child => child.userData.isBead).forEach(child => scene.remove(child));
+            
+            let visualBeadRadius = 0.5; 
+            const currentType = meshTypeSelect.value; // Usa o tipo selecionado para determinar o raio visual da última geometria adicionada/configurada
+            const currentParamsDiv = geometryParamsDivs[currentType];
+
+            if (currentType === 'manual') {
+                visualBeadRadius = parseFloat(manualBeadRadiusInput.value) || 0.5;
+            } else if (currentType !== 'none' && currentParamsDiv) {
+                 const defTypeSelect = currentParamsDiv.querySelector('.geometry-definition-type');
+                 if (defTypeSelect && defTypeSelect.value === 'radius') {
+                    const radiusInput = currentParamsDiv.querySelector('.radius-input-group input');
+                    visualBeadRadius = parseFloat(radiusInput.value) || 0.5;
+                 } else if (defTypeSelect && defTypeSelect.value === 'qmax') {
+                    visualBeadRadius = 0.25; 
+                 }
+            }
+             if (isNaN(visualBeadRadius) || visualBeadRadius <= 0) visualBeadRadius = 0.5;
+
+
+            const geometry = new THREE.SphereGeometry(visualBeadRadius, 16, 16); // Usar o raio visual determinado acima
+            const material = new THREE.MeshPhongMaterial({ color: 0x007bff }); 
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+
+            beads.forEach(bead => {
+                const sphere = new THREE.Mesh(geometry, material); // Todas as beads terão o mesmo raio visual da última configuração
+                sphere.position.set(bead.x, bead.y, bead.z);
+                sphere.userData.isBead = true; 
+                scene.add(sphere);
+                minX = Math.min(minX, bead.x - visualBeadRadius); maxX = Math.max(maxX, bead.x + visualBeadRadius);
+                minY = Math.min(minY, bead.y - visualBeadRadius); maxY = Math.max(maxY, bead.y + visualBeadRadius);
+                minZ = Math.min(minZ, bead.z - visualBeadRadius); maxZ = Math.max(maxZ, bead.z + visualBeadRadius);
+            });
+
+            if (beads.length > 0) {
+                const centerX = (minX + maxX) / 2;
+                const centerY = (minY + maxY) / 2;
+                const centerZ = (minZ + maxZ) / 2;
+                const extentX = maxX - minX;
+                const extentY = maxY - minY;
+                const extentZ = maxZ - minZ;
+                const maxExtent = Math.max(extentX, extentY, extentZ, 1); 
+
+                const fov = camera.fov * (Math.PI / 180);
+                const cameraDistance = Math.abs(maxExtent / 2 / Math.tan(fov / 2));
+                
+                camera.position.set(centerX, centerY, centerZ + cameraDistance * 1.5 + maxExtent * 0.5); 
+                camera.lookAt(centerX, centerY, centerZ);
+                camera.near = Math.max(0.1, cameraDistance * 0.1); 
+                camera.far = cameraDistance * 3 + maxExtent; 
+                camera.updateProjectionMatrix();
+                if (controls) controls.target.set(centerX, centerY, centerZ);
+            } else {
+                 camera.position.set(10,10,20); 
+                 camera.lookAt(0,0,0);
+                 if (controls) controls.target.set(0,0,0);
+            }
+            if (controls) controls.update();
+            render3D();
+        }
+
+        function render3D() {
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+        
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            if (controls && controls.enableDamping) controls.update();
+        }
+
+        // --- Rotação da Malha ---
+        applyRotationBtn.addEventListener('click', () => {
+            hideMessage();
+            if (beads.length === 0) {
+                showMessage("Nenhuma malha para rotacionar.", "error");
+                return;
+            }
+            const cx = parseFloat(rotationPointXInput.value);
+            const cy = parseFloat(rotationPointYInput.value);
+            const cz = parseFloat(rotationPointZInput.value);
+            const axis = rotationAxisSelect.value;
+            const angleDeg = parseFloat(rotationAngleInput.value);
+            if (isNaN(cx) || isNaN(cy) || isNaN(cz) || isNaN(angleDeg)) {
+                showMessage("Parâmetros de rotação inválidos. Verifique o ponto e o ângulo.", "error");
+                return;
+            }
+            const angleRad = angleDeg * (Math.PI / 180);
+            const cosA = Math.cos(angleRad);
+            const sinA = Math.sin(angleRad);
+            beads.forEach(bead => {
+                let x = bead.x - cx;
+                let y = bead.y - cy;
+                let z = bead.z - cz;
+                let x_new, y_new, z_new;
+                if (axis === 'x') {
+                    x_new = x; y_new = y * cosA - z * sinA; z_new = y * sinA + z * cosA;
+                } else if (axis === 'y') {
+                    x_new = x * cosA + z * sinA; y_new = y; z_new = -x * sinA + z * cosA;
+                } else { 
+                    x_new = x * cosA - y * sinA; y_new = x * sinA + y * cosA; z_new = z;
+                }
+                bead.x = x_new + cx; bead.y = y_new + cy; bead.z = z_new + cz;
+            });
+            update3DView();
+            showMessage(`Malha rotacionada em ${angleDeg}° em torno do eixo ${axis.toUpperCase()} no ponto (${cx},${cy},${cz}).`, "success");
+        });
+
+        calculateScatteringBtn.addEventListener('click', async () => {
+            hideMessage();
+            if (beads.length === 0) { showMessage("Nenhuma malha definida.", "error"); return; }
+            const qMinCalc = parseFloat(qMinForIQInput.value);
+            const qMaxCalc = parseFloat(qMaxForIQInput.value);
+            const numQ = parseInt(numQPointsForIQInput.value);
+            const f_const = parseFloat(formFactorForIQInput.value);
+            if (isNaN(qMinCalc) || isNaN(qMaxCalc) || isNaN(numQ) || qMinCalc < 0 || qMaxCalc <= qMinCalc || numQ < 2 || isNaN(f_const)) {
+                showMessage("Parâmetros de cálculo de I(q) inválidos.", "error"); return;
+            }
+            showLoader();
+            await new Promise(resolve => setTimeout(resolve, 50)); 
+            try {
+                const qValues = [];
+                const step = (qMaxCalc - qMinCalc) / (numQ - 1);
+                for (let i = 0; i < numQ; i++) { qValues.push(qMinCalc + i * step); }
+                const I_q_values = [];
+                const numBeads = beads.length;
+                for (const q_val of qValues) { 
+                    let current_I_q = 0;
+                    for (let i = 0; i < numBeads; i++) {
+                        for (let j = 0; j < numBeads; j++) {
+                            const r_i = beads[i]; const r_j = beads[j];
+                            const dx = r_i.x - r_j.x; const dy = r_i.y - r_j.y; const dz = r_i.z - r_j.z;
+                            const dist_ij = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                            const arg = q_val * dist_ij;
+                            let sinc_val = (arg !== 0) ? Math.sin(arg) / arg : 1;
+                            current_I_q += f_const * f_const * sinc_val; 
+                        }
+                    }
+                    I_q_values.push(current_I_q);
+                }
+                updateIQChart(qValues, I_q_values);
+                showMessage("Cálculo de I(q) concluído.", "success");
+            } catch (error) {
+                showMessage(`Erro no cálculo de I(q): ${error.message}`, "error"); console.error(error);
+            } finally { hideLoader(); }
+        });
+
+        calculatePrBtn.addEventListener('click', () => {
+            hideMessage();
+            if (beads.length === 0) { showMessage("Nenhuma malha definida para calcular P(r).", "error"); return; }
+            showMessage("Funcionalidade P(r) ainda não implementada.", "info");
+            prChartPanel.classList.remove('hidden');
+            initPrChart();
+        });
+
+        function initIQChart() {
+            const ctx = iqChartCanvas.getContext('2d');
+            if (iqChartInstance) iqChartInstance.destroy();
+            iqChartInstance = new Chart(ctx, {
+                type: 'line', data: { labels: [], datasets: [{ label: 'I(q)', data: [], borderColor: 'rgb(75, 192, 192)', tension: 0.1, fill: false }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'q (mm⁻¹)'}, type: 'linear' }, y: { title: { display: true, text: 'I(q)'}, type: 'logarithmic'}}}
+            });
+        }
+        function updateIQChart(qValues, iqData) {
+            if (!iqChartInstance) initIQChart();
+            iqChartInstance.data.labels = qValues; iqChartInstance.data.datasets[0].data = iqData; iqChartInstance.update();
+        }
+        function initPrChart() { 
+            const ctx = prChartCanvas.getContext('2d');
+            if (prChartInstance) prChartInstance.destroy();
+            prChartInstance = new Chart(ctx, {
+                type: 'line', data: { labels: [], datasets: [{ label: 'P(r)', data: [], borderColor: 'rgb(255, 99, 132)', tension: 0.1, fill: false }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'r (mm)'}}, y: { title: { display: true, text: 'P(r)'}}}}
+            });
+        }
+
+        clearAllBtn.addEventListener('click', () => {
+            beads = [];
+            manualCoordsInputArea.innerHTML = ''; 
+            Object.values(geometryParamsDivs).forEach(div => {
+                if(div) { 
+                    const inputs = div.querySelectorAll('input[type="number"], select');
+                    inputs.forEach(input => {
+                        if (input.tagName === 'SELECT' && input.classList.contains('geometry-definition-type')) {
+                            input.value = 'radius'; input.dispatchEvent(new Event('change')); 
+                        } else if (input.id && input.id.toLowerCase().includes('radius')) {
+                             input.value = input.id.includes('manualBeadRadius') ? '1' : (input.id.includes('Inner') ? (input.id.includes('casca') ? '4' : '0') : '5'); 
+                        } else if (input.id && input.id.toLowerCase().includes('qmax')) {
+                            input.value = '0.5'; 
+                        } else if (input.placeholder === 'X' || input.placeholder === 'Y' || input.placeholder === 'Z') {
+                            input.value = '0'; 
+                        } else if (input.id && (input.id.includes('Edge') || input.id.includes('Height') || input.id.includes('Width') || input.id.includes('Length'))) {
+                            input.value = '10'; 
+                        } else if (input.id && (input.id.includes('elipsoideA'))) { input.value = '6';
+                        } else if (input.id && (input.id.includes('elipsoideB'))) { input.value = '4';
+                        } else if (input.id && (input.id.includes('elipsoideC'))) { input.value = '3'; }
+                    });
+                }
+            });
+            qMinForIQInput.value = "0.01"; qMaxForIQInput.value = "0.5";
+            numQPointsForIQInput.value = "100"; formFactorForIQInput.value = "1";
+            rotationPointXInput.value = "0"; rotationPointYInput.value = "0"; rotationPointZInput.value = "0";
+            rotationAxisSelect.value = "x"; rotationAngleInput.value = "0";
+            meshTypeSelect.value = 'none'; meshTypeSelect.dispatchEvent(new Event('change')); 
+            beadCountDisplay.textContent = 'Número de beads: 0';
+            update3DView(); 
+            if (iqChartInstance) { iqChartInstance.data.labels = []; iqChartInstance.data.datasets[0].data = []; iqChartInstance.update(); }
+            if (prChartInstance) { prChartInstance.data.labels = []; prChartInstance.data.datasets[0].data = []; prChartInstance.update(); prChartPanel.classList.add('hidden'); }
+            hideMessage();
+            showMessage("Todos os campos e visualizações foram limpos.", "info");
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            createXYZInputGroup('cubeCenterCoords', 'cubeCenter');
+            createXYZInputGroup('prismaCenterCoords', 'prismaCenter');
+            createXYZInputGroup('cilindroCenterCoords', 'cilindroCenter');
+            createXYZInputGroup('casca_esferaCenterCoords', 'casca_esferaCenter');
+            createXYZInputGroup('esfera_preenchidaCenterCoords', 'esfera_preenchidaCenter');
+            createXYZInputGroup('coneCenterCoords', 'coneCenter');
+            createXYZInputGroup('elipsoideCenterCoords', 'elipsoideCenter');
+            init3DView(); initIQChart();
+            meshTypeSelect.dispatchEvent(new Event('change')); 
+            onWindowResize(); animate3D(); 
+            document.querySelectorAll('.geometry-definition-type').forEach(sel => {
+                sel.value = 'radius'; sel.dispatchEvent(new Event('change'));
+            });
+        });
+    </script>
+</body>
+</html>
