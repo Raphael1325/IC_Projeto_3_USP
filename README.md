@@ -60,4 +60,4 @@ Documentação e Prototipagem: LaTeX, GoogleColaboratory.
 Autor: Raphael Lima Alves
 Orientador(a): Prof. Dr. Cristiano Luis Pinto Oliveira
 Universidade: Universidade de São Paulo (USP)
-Período: 2023 - 2024
+Período: 2024 - 2025
