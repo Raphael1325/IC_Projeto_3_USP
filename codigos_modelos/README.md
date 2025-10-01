@@ -45,7 +45,7 @@ pip install numpy numba scipy matplotlib
 
 1. Geração de Geometrias
 
-Exemplo: gerar uma esfera de raio 10 Å centrada na origem:
+# Exemplo: gerar uma esfera de raio 10 Å centrada na origem:
 
 from geometria import GerenciadorGeometrias
 
